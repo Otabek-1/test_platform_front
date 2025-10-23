@@ -1,0 +1,462 @@
+import React, { useEffect, useState, useRef } from "react";
+
+/**
+ * App.jsx
+ * - Light mode only
+ * - One Finish button (footer). When clicked -> confirm -> finish
+ * - Test details NOT shown on finished screen (only score/summary briefly)
+ * - PDF generated on frontend using jsPDF + html2canvas and sent as FormData to /submit
+ * - PDF filename: <safeFullName>_YYYYMMDD-HHMM.pdf
+ * - PDF sent as File with MIME "application/pdf"
+ *
+ * Endpoints (assumed):
+ * POST http://localhost:3000/verify  -> { access: true|false } (we send { code, name })
+ * GET  http://localhost:3000/tests?limit=25 -> array of tests { id, question, options[], answer }
+ * POST http://localhost:3000/submit -> accepts multipart/form-data file field "file" and meta fields
+ *
+ * Install: npm i jspdf html2canvas
+ */
+
+export default function App() {
+  // UI states
+  const [step, setStep] = useState("verify"); // verify, rules, running, finished
+  const [name, setName] = useState("");
+  const [code, setCode] = useState("");
+  const [tests, setTests] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [answers, setAnswers] = useState({}); // {testId: selectedOption}
+  const [startedAt, setStartedAt] = useState(null);
+  const [finishedAt, setFinishedAt] = useState(null);
+  const [durationSec, setDurationSec] = useState(60 * 60); // 60 minutes
+  const [timeLeft, setTimeLeft] = useState(60 * 60);
+  const [violations, setViolations] = useState(0);
+  const [showVerifyError, setShowVerifyError] = useState("");
+  const timerRef = useRef(null);
+  const visibilityWarningsRef = useRef(0);
+
+  // VERIFY (send name+code for clarity)
+  const handleVerify = async () => {
+    setShowVerifyError("");
+    if (!name.trim()) {
+      setShowVerifyError("Please enter your full name.");
+      return;
+    }
+    try {
+      const res = await fetch("http://localhost:3000/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), code: code.trim() }),
+      });
+      const data = await res.json();
+      if (data && data.access) {
+        setStep("rules");
+      } else {
+        setShowVerifyError("Invalid code or access denied.");
+      }
+    } catch (e) {
+      setShowVerifyError("Network error. Try again.");
+    }
+  };
+
+  // START TEST
+  const startTest = async () => {
+    try {
+      const q = new URLSearchParams({ limit: 25 });
+      const res = await fetch(`http://localhost:3000/tests?${q.toString()}`);
+      if (!res.ok) throw new Error("Failed to load tests");
+      const arr = await res.json();
+      setTests(Array.isArray(arr) ? arr : []);
+      setStartedAt(new Date().toISOString());
+      setTimeLeft(60 * 60);
+      setDurationSec(60 * 60);
+      setCurrentIndex(0);
+      setAnswers({});
+      setViolations(0);
+      setStep("running");
+
+      if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = setInterval(() => {
+        setTimeLeft((t) => {
+          if (t <= 1) {
+            clearInterval(timerRef.current);
+            finishByTimeout();
+            return 0;
+          }
+          return t - 1;
+        });
+      }, 1000);
+
+      window.addEventListener("beforeunload", beforeUnloadHandler);
+      document.addEventListener("visibilitychange", visibilityHandler);
+    } catch (e) {
+      alert("Failed to load tests");
+    }
+  };
+
+  const visibilityHandler = () => {
+    if (document.hidden) {
+      visibilityWarningsRef.current += 1;
+      setViolations((v) => v + 1);
+      // Use confirm-like warning but keep it simple
+      // small alert is acceptable for tests
+      alert("Warning: You left the test window. Please do not switch tabs.");
+    }
+  };
+
+  const beforeUnloadHandler = (e) => {
+    e.preventDefault();
+    e.returnValue =
+      "Refreshing or leaving will submit your test and may be considered a violation.";
+  };
+
+  useEffect(() => {
+    // cleanup on unmount
+    return () => {
+      document.removeEventListener("visibilitychange", visibilityHandler);
+      window.removeEventListener("beforeunload", beforeUnloadHandler);
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const selectOption = (testId, option) => {
+    setAnswers((prev) => ({ ...prev, [testId]: option }));
+  };
+
+  const goNext = () => {
+    if (currentIndex < tests.length - 1) setCurrentIndex((i) => i + 1);
+  };
+  const goPrev = () => {
+    if (currentIndex > 0) setCurrentIndex((i) => i - 1);
+  };
+
+  // User clicked Finish (manual)
+  const handleFinish = async () => {
+    const ok = window.confirm("Haqiqatan ham testni tugatmoqchimisiz?");
+    if (!ok) return;
+    // Stop and submit
+    if (timerRef.current) clearInterval(timerRef.current);
+    window.removeEventListener("beforeunload", beforeUnloadHandler);
+    document.removeEventListener("visibilitychange", visibilityHandler);
+    setFinishedAt(new Date().toISOString());
+    setStep("finished");
+
+    // generate and send PDF
+    setTimeout(() => {
+      createAndSendPDF();
+    }, 400);
+  };
+
+  // Auto finish when time ends
+  const finishByTimeout = () => {
+    // No confirm on timeout
+    if (timerRef.current) clearInterval(timerRef.current);
+    window.removeEventListener("beforeunload", beforeUnloadHandler);
+    document.removeEventListener("visibilitychange", visibilityHandler);
+    setFinishedAt(new Date().toISOString());
+    setStep("finished");
+    setTimeout(() => {
+      createAndSendPDF();
+    }, 400);
+  };
+
+  // create PDF and send to backend
+const createAndSendPDF = async () => {
+  try {
+    const { jsPDF } = await import("jspdf");
+
+    const total = tests.length;
+    let correct = 0;
+
+    const rows = tests
+      .map((t, i) => {
+        const userAnswer = answers[t.id];
+        const isCorrect = userAnswer === t.answer;
+        if (isCorrect) correct++;
+        return `${i + 1}. ${t.question}\nYour answer: ${
+          userAnswer || "-"
+        }\nCorrect answer: ${t.answer}\n\n`;
+      })
+      .join("");
+
+    const started = startedAt || new Date().toISOString();
+    const finished = new Date().toISOString();
+
+    const durationSeconds = (new Date(finished) - new Date(started)) / 1000;
+    const mins = Math.floor(durationSeconds / 60);
+    const secs = Math.floor(durationSeconds % 60);
+    const duration = `${mins}m ${secs}s`;
+
+    const dt = new Date(finished);
+    const yyyy = dt.getFullYear();
+    const mm = String(dt.getMonth() + 1).padStart(2, "0");
+    const dd = String(dt.getDate()).padStart(2, "0");
+    const hh = String(dt.getHours()).padStart(2, "0");
+    const min = String(dt.getMinutes()).padStart(2, "0");
+    const safeName = (name || "user")
+      .trim()
+      .replace(/\s+/g, "_")
+      .replace(/[^\w\-]/g, "");
+    const filename = `${safeName}_${yyyy}${mm}${dd}-${hh}${min}.pdf`;
+
+    // 🧾 PDF yaratish
+    const doc = new jsPDF({ unit: "px", format: "a4" });
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let y = 30;
+
+    // Header
+    doc.setFontSize(14);
+    doc.text("Test Summary", 20, y);
+    y += 20;
+
+    doc.setFontSize(12);
+    doc.text(`Name: ${name}`, 20, y); y += 16;
+    doc.text(`Started: ${started}`, 20, y); y += 16;
+    doc.text(`Finished: ${finished}`, 20, y); y += 16;
+    doc.text(`Duration: ${duration}`, 20, y); y += 16;
+    doc.text(`Score: ${correct} / ${total}`, 20, y); y += 20;
+
+    // Savollarni qo‘shish
+    const splitText = doc.splitTextToSize(rows, pageWidth - 40);
+
+    for (let i = 0; i < splitText.length; i++) {
+      if (y > pageHeight - 40) {
+        doc.addPage();
+        y = 30;
+      }
+      doc.text(splitText[i], 20, y);
+      y += 14;
+    }
+
+    // 📦 PDF fayl
+    const pdfBlob = doc.output("blob");
+    const file = new File([pdfBlob], filename, { type: "application/pdf" });
+
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("name", name);
+    fd.append("startedAt", started);
+    fd.append("finishedAt", finished);
+    fd.append("duration", duration);
+    fd.append("total", total.toString());
+    fd.append("correct", correct.toString());
+
+    const res = await fetch("http://localhost:3000/submit", {
+      method: "POST",
+      body: fd,
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => null);
+      console.error("Submit failed:", res.status, text);
+      alert("❌ Test natijasi yuborilmadi. Iltimos, qayta urinib ko‘ring.");
+    } else {
+      console.log("✅ PDF muvaffaqiyatli yuborildi!");
+      alert("✅ Test natijangiz yuborildi!");
+    }
+
+  } catch (err) {
+    console.error("❌ PDF yaratish yoki yuborishda xatolik:", err);
+    alert("PDF yaratishda yoki yuborishda xatolik yuz berdi!");
+  }
+};
+
+
+  const formatDuration = (secs) => {
+    secs = Math.max(0, Math.round(secs || 0));
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    return `${pad(h)}:${pad(m)}:${pad(s)}`;
+  };
+  const pad = (n) => String(n).padStart(2, "0");
+
+  const escapeHtml = (str) => {
+    if (!str) return "";
+    return String(str).replace(/[&<>"']/g, function (c) {
+      return {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      }[c];
+    });
+  };
+
+  // UI components
+  if (step === "verify") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="w-full max-w-md bg-white p-6 rounded-lg shadow">
+          <div className="text-center mb-4">
+            <div className="w-20 h-20 mx-auto bg-gradient-to-br from-indigo-500 to-pink-500 rounded-full flex items-center justify-center text-white font-bold">
+              LOGO
+            </div>
+            <p className="mt-3 text-sm text-gray-600">Enter your full name and access code</p>
+          </div>
+
+          <div className="space-y-3">
+            <input
+              className="w-full p-2 border rounded bg-gray-50"
+              placeholder="Full name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+            <input
+              className="w-full p-2 border rounded bg-gray-50"
+              placeholder="Access code"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+            />
+            {showVerifyError && <div className="text-red-500 text-sm">{showVerifyError}</div>}
+            <button className="w-full py-2 bg-indigo-600 text-white rounded" onClick={handleVerify}>
+              Enter
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === "rules") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="w-full max-w-2xl bg-white p-6 rounded-lg shadow">
+          <h2 className="text-xl font-bold mb-4">Important rules before starting</h2>
+          <ul className="list-disc pl-5 text-sm text-gray-700">
+            <li>Test duration: <strong>1 hour</strong>.</li>
+            <li>Total tests: <strong>25</strong>.</li>
+            <li>Do NOT switch to another tab or app during the test.</li>
+            <li>Do NOT refresh the page.</li>
+          </ul>
+          <div className="mt-6 flex justify-end">
+            <button className="px-4 py-2 bg-gray-200 rounded mr-2" onClick={() => setStep("verify")}>
+              Back
+            </button>
+            <button className="px-4 py-2 bg-indigo-600 text-white rounded" onClick={startTest}>
+              Start
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === "running") {
+    const current = tests[currentIndex] || {};
+    const total = tests.length;
+    return (
+      <div className="min-h-screen flex flex-col bg-gray-50">
+        {/* Navbar */}
+        <nav className="flex items-center justify-between px-4 py-3 bg-white shadow">
+          <div className="flex items-center gap-4">
+            <div className="font-bold">TestApp</div>
+            <div className="text-sm text-gray-600">{name}</div>
+          </div>
+          <div className="text-sm">
+            Time left:{" "}
+            <span className="font-mono">
+              {pad(Math.floor(timeLeft / 3600))}:{pad(Math.floor((timeLeft % 3600) / 60))}:{pad(timeLeft % 60)}
+            </span>
+          </div>
+        </nav>
+
+        {/* Main */}
+        <main className="flex-1 p-4 max-w-4xl mx-auto w-full">
+          <div className="bg-white p-4 rounded shadow">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="font-semibold">Question {currentIndex + 1} / {total}</h3>
+                <p className="mt-2 text-gray-700">{current.question}</p>
+              </div>
+              <div className="text-sm text-gray-500">
+                Violations: <strong>{violations}</strong>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3">
+              {(current.options || []).map((opt, i) => {
+                const selected = answers[current.id] === opt;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => selectOption(current.id, opt)}
+                    className={`text-left p-3 rounded border ${selected ? "border-indigo-500 bg-indigo-50" : ""}`}
+                  >
+                    {opt}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-4 flex justify-between">
+              <div>
+                <button className="px-3 py-1 mr-2 border rounded" onClick={goPrev} disabled={currentIndex === 0}>
+                  Prev
+                </button>
+                <button className="px-3 py-1 border rounded" onClick={goNext} disabled={currentIndex === total - 1}>
+                  Next
+                </button>
+              </div>
+
+              {/* removed duplicate finish -- only one finish (in footer) */}
+              <div className="text-sm text-gray-500">Questions: {total}</div>
+            </div>
+          </div>
+
+          {/* question quick jump list (kept as requested) */}
+          <div className="mt-4 grid grid-cols-5 gap-2">
+            {tests.map((t, idx) => {
+              const answered = answers[t.id] !== undefined;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setCurrentIndex(idx)}
+                  className={`p-2 rounded ${answered ? "bg-green-100" : "bg-gray-100"}`}
+                >
+                  {idx + 1}
+                </button>
+              );
+            })}
+          </div>
+        </main>
+
+        {/* Footer with single Finish button */}
+        <footer className="p-4 bg-white shadow">
+          <div className="max-w-4xl mx-auto flex justify-between items-center">
+            <div className="text-sm text-gray-600">{name} — {tests.length} questions</div>
+            <div>
+              <button className="px-4 py-2 bg-red-600 text-white rounded" onClick={handleFinish}>
+                Finish
+              </button>
+            </div>
+          </div>
+        </footer>
+      </div>
+    );
+  }
+
+  // finished screen — DO NOT show per-question details (only summary)
+  if (step === "finished") {
+    // compute score (but do not render per-question details)
+    const total = tests.length;
+    let correct = 0;
+    tests.forEach((t) => {
+      if (answers[t.id] === t.answer) correct++;
+    });
+
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="w-full max-w-2xl bg-white p-6 rounded shadow text-center">
+          <h2 className="text-xl font-bold">Test completed successfully!</h2>
+          <p className="mt-2">Your test results have been submitted automatically.</p>
+          <p className="mt-2 text-sm text-gray-600">Score: {correct} / {total}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
