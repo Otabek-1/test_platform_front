@@ -11,9 +11,9 @@ import React, { useEffect, useState, useRef } from "react";
  * - PDF sent as File with MIME "application/pdf"
  *
  * Endpoints (assumed):
- * POST http://localhost:3000/verify  -> { access: true|false } (we send { code, name })
- * GET  http://localhost:3000/tests?limit=25 -> array of tests { id, question, options[], answer }
- * POST http://localhost:3000/submit -> accepts multipart/form-data file field "file" and meta fields
+ * POST https://otabek.alwaysdata.net/verify  -> { access: true|false } (we send { code, name })
+ * GET  https://otabek.alwaysdata.net/tests?limit=25 -> array of tests { id, question, options[], answer }
+ * POST https://otabek.alwaysdata.net/submit -> accepts multipart/form-data file field "file" and meta fields
  *
  * Install: npm i jspdf html2canvas
  */
@@ -43,7 +43,7 @@ export default function App() {
       return;
     }
     try {
-      const res = await fetch("http://localhost:3000/verify", {
+      const res = await fetch("https://otabek.alwaysdata.net/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name.trim(), code: code.trim() }),
@@ -63,7 +63,7 @@ export default function App() {
   const startTest = async () => {
     try {
       const q = new URLSearchParams({ limit: 25 });
-      const res = await fetch(`http://localhost:3000/tests?${q.toString()}`);
+      const res = await fetch(`https://otabek.alwaysdata.net/tests?${q.toString()}`);
       if (!res.ok) throw new Error("Failed to load tests");
       const arr = await res.json();
       setTests(Array.isArray(arr) ? arr : []);
@@ -243,7 +243,7 @@ const createAndSendPDF = async () => {
     fd.append("total", total.toString());
     fd.append("correct", correct.toString());
 
-    const res = await fetch("http://localhost:3000/submit", {
+    const res = await fetch("https://otabek.alwaysdata.net/submit", {
       method: "POST",
       body: fd,
     });
