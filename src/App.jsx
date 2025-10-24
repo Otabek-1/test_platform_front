@@ -1,5 +1,6 @@
 import { Angry, CheckCheckIcon, CheckLine, CircleQuestionMark, FileQuestionIcon, LeafyGreen, Paperclip, Wheat } from "lucide-react";
 import React, { useEffect, useState, useRef } from "react";
+import NotoSans from "./NotoSans-Regular.ttf";
 
 /**
  * App.jsx
@@ -162,106 +163,109 @@ export default function App() {
   };
 
   // create PDF and send to backend
-const createAndSendPDF = async () => {
-  try {
-    const { jsPDF } = await import("jspdf");
+  const createAndSendPDF = async () => {
+    try {
+      const { jsPDF } = await import("jspdf");
 
-    const total = tests.length;
-    let correct = 0;
+      const total = tests.length;
+      let correct = 0;
 
-    const rows = tests
-      .map((t, i) => {
-        const userAnswer = answers[t.id];
-        const isCorrect = userAnswer === t.answer;
-        if (isCorrect) correct++;
-        return `${i + 1}. ${t.question}\nTanlangan javob: ${
-          userAnswer || "-"
-        }\nTo'g'ri javob: ${t.answer}\n\n`;
-      })
-      .join("");
+      const rows = tests
+        .map((t, i) => {
+          const userAnswer = answers[t.id];
+          const isCorrect = userAnswer === t.answer;
+          if (isCorrect) correct++;
+          return `${i + 1}. ${t.question}\nTanlangan javob: ${userAnswer || "-"
+            }\nTo'g'ri javob: ${t.answer}\n\n`;
+        })
+        .join("");
 
-    const started = startedAt || new Date().toISOString();
-    const finished = new Date().toISOString();
+      const started = startedAt || new Date().toISOString();
+      const finished = new Date().toISOString();
 
-    const durationSeconds = (new Date(finished) - new Date(started)) / 1000;
-    const mins = Math.floor(durationSeconds / 60);
-    const secs = Math.floor(durationSeconds % 60);
-    const duration = `${mins}m ${secs}s`;
+      const durationSeconds = (new Date(finished) - new Date(started)) / 1000;
+      const mins = Math.floor(durationSeconds / 60);
+      const secs = Math.floor(durationSeconds % 60);
+      const duration = `${mins}m ${secs}s`;
 
-    const dt = new Date(finished);
-    const yyyy = dt.getFullYear();
-    const mm = String(dt.getMonth() + 1).padStart(2, "0");
-    const dd = String(dt.getDate()).padStart(2, "0");
-    const hh = String(dt.getHours()).padStart(2, "0");
-    const min = String(dt.getMinutes()).padStart(2, "0");
-    const safeName = (name || "user")
-      .trim()
-      .replace(/\s+/g, "_")
-      .replace(/[^\w\-]/g, "");
-    const filename = `${safeName}_${yyyy}${mm}${dd}-${hh}${min}.pdf`;
+      const dt = new Date(finished);
+      const yyyy = dt.getFullYear();
+      const mm = String(dt.getMonth() + 1).padStart(2, "0");
+      const dd = String(dt.getDate()).padStart(2, "0");
+      const hh = String(dt.getHours()).padStart(2, "0");
+      const min = String(dt.getMinutes()).padStart(2, "0");
+      const safeName = (name || "user")
+        .trim()
+        .replace(/\s+/g, "_")
+        .replace(/[^\w\-]/g, "");
+      const filename = `${safeName}_${yyyy}${mm}${dd}-${hh}${min}.pdf`;
 
-    // 🧾 PDF yaratish
-    const doc = new jsPDF({ unit: "px", format: "a4" });
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    let y = 30;
+      // 🧾 PDF yaratish
+      const doc = new jsPDF({ unit: "px", format: "a4" });
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      let y = 30;
+      const fontBytes = await fetch("/fonts/NotoSans-Regular.ttf").then(res => res.arrayBuffer());
+      doc.addFileToVFS("NotoSans-Regular.ttf", fontBytes);
+      doc.addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
+      doc.setFont("NotoSans");
 
-    // Header
-    doc.setFontSize(14);
-    doc.text("Test Summary", 20, y);
-    y += 20;
+      // Header
+      doc.setFontSize(14);
+      doc.text("Test Summary", 20, y);
+      y += 20;
 
-    doc.setFontSize(12);
-    doc.text(`Ism: ${name}`, 20, y); y += 16;
-    doc.text(`Boshlagan vaqt: ${started}`, 20, y); y += 16;
-    doc.text(`Tugatgan vaqt: ${finished}`, 20, y); y += 16;
-    doc.text(`Davomiylik: ${duration}`, 20, y); y += 16;
-    doc.text(`Natija: ${correct} / ${total}`, 20, y); y += 20;
+      doc.setFontSize(12);
+      doc.text(`Ism: ${name}`, 20, y); y += 16;
+      doc.text(`Boshlagan vaqt: ${started}`, 20, y); y += 16;
+      doc.text(`Tugatgan vaqt: ${finished}`, 20, y); y += 16;
+      doc.text(`Davomiylik: ${duration}`, 20, y); y += 16;
+      doc.text(`Natija: ${correct} / ${total}`, 20, y); y += 20;
 
-    // Savollarni qo‘shish
-    const splitText = doc.splitTextToSize(rows, pageWidth - 40);
+      // Savollarni qo‘shish
+      const splitText = doc.splitTextToSize(rows, pageWidth - 40);
 
-    for (let i = 0; i < splitText.length; i++) {
-      if (y > pageHeight - 40) {
-        doc.addPage();
-        y = 30;
+      for (let i = 0; i < splitText.length; i++) {
+        if (y > pageHeight - 40) {
+          doc.addPage();
+          y = 30;
+        }
+        doc.text(splitText[i], 20, y);
+        y += 14;
       }
-      doc.text(splitText[i], 20, y);
-      y += 14;
+
+      // 📦 PDF fayl
+      const pdfBlob = doc.output("blob");
+      const file = new File([pdfBlob], filename, { type: "application/pdf" });
+
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("name", name);
+      fd.append("startedAt", started);
+      fd.append("finishedAt", finished);
+      fd.append("duration", duration);
+      fd.append("total", total.toString());
+      fd.append("correct", correct.toString());
+
+      const res = await fetch("https://otabek.alwaysdata.net/submit", {
+        method: "POST",
+        body: fd,
+      });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => null);
+        console.error("Submit failed:", res.status, text);
+        alert("❌ Test natijasi yuborilmadi. Iltimos, qayta urinib ko‘ring.");
+      } else {
+        console.log("✅ PDF muvaffaqiyatli yuborildi!");
+        alert("✅ Test natijangiz yuborildi!");
+      }
+
+    } catch (err) {
+      console.error("❌ PDF yaratish yoki yuborishda xatolik:", err);
+      alert("PDF yaratishda yoki yuborishda xatolik yuz berdi!");
     }
-
-    // 📦 PDF fayl
-    const pdfBlob = doc.output("blob");
-    const file = new File([pdfBlob], filename, { type: "application/pdf" });
-
-    const fd = new FormData();
-    fd.append("file", file);
-    fd.append("name", name);
-    fd.append("startedAt", started);
-    fd.append("finishedAt", finished);
-    fd.append("duration", duration);
-    fd.append("total", total.toString());
-    fd.append("correct", correct.toString());
-
-    const res = await fetch("https://otabek.alwaysdata.net/submit", {
-      method: "POST",
-      body: fd,
-    });
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => null);
-      console.error("Submit failed:", res.status, text);
-      alert("❌ Test natijasi yuborilmadi. Iltimos, qayta urinib ko‘ring.");
-    } else {
-      console.log("✅ PDF muvaffaqiyatli yuborildi!");
-      alert("✅ Test natijangiz yuborildi!");
-    }
-
-  } catch (err) {
-    console.error("❌ PDF yaratish yoki yuborishda xatolik:", err);
-    alert("PDF yaratishda yoki yuborishda xatolik yuz berdi!");
-  }
-};
+  };
 
 
   const formatDuration = (secs) => {
@@ -293,7 +297,7 @@ const createAndSendPDF = async () => {
         <div className="w-full max-w-md bg-white p-6 rounded-lg shadow">
           <div className="text-center mb-4">
             <div className="w-20 h-20 mx-auto bg-gradient-to-br from-green-500 to-pink-500 rounded-full flex items-center justify-center text-white font-bold">
-              <Wheat className="scale-170"/>
+              <Wheat className="scale-170" />
             </div>
             <p className="mt-3 text-lg text-gray-800">Don mutaxassislari  bilimlarini baholash platformasi</p>
           </div>
