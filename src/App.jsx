@@ -1,6 +1,6 @@
 import { Angry, CheckCheckIcon, CheckLine, CircleQuestionMark, FileQuestionIcon, LeafyGreen, Paperclip, Wheat } from "lucide-react";
 import React, { useEffect, useState, useRef } from "react";
-import NotoSans from "./NotoSans-Regular.ttf";
+import NotoSans from "../public/fonts/NotoSans-Regular.ttf";
 
 /**
  * App.jsx
