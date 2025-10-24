@@ -165,8 +165,21 @@ export default function App() {
   // create PDF and send to backend
   const createAndSendPDF = async () => {
     try {
+      // 🔹 Lazy import jsPDF (bundle hajmini kamaytirish uchun)
       const { jsPDF } = await import("jspdf");
 
+      // 🔹 Fontni yuklash (public/fonts/NotoSans-Regular.ttf)
+      const fontUrl = `${window.location.origin}/fonts/NotoSans-Regular.ttf`;
+      const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
+      const fontBinary = new Uint8Array(fontBytes);
+
+      // 🔹 Fontni jsPDF’ga qo‘shish
+      const doc = new jsPDF({ unit: "px", format: "a4" });
+      doc.addFileToVFS("NotoSans-Regular.ttf", fontBinary);
+      doc.addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
+      doc.setFont("NotoSans", "normal");
+
+      // 🔹 Test natijalari
       const total = tests.length;
       let correct = 0;
 
@@ -175,19 +188,20 @@ export default function App() {
           const userAnswer = answers[t.id];
           const isCorrect = userAnswer === t.answer;
           if (isCorrect) correct++;
-          return `${i + 1}. ${t.question}\nTanlangan javob: ${userAnswer || "-"
-            }\nTo'g'ri javob: ${t.answer}\n\n`;
+          return `${i + 1}. ${t.question}\nSizning javobingiz: ${userAnswer || "-"
+            }\nTo‘g‘ri javob: ${t.answer}\n\n`;
         })
         .join("");
 
+      // 🔹 Vaqt va davomiylik
       const started = startedAt || new Date().toISOString();
       const finished = new Date().toISOString();
-
       const durationSeconds = (new Date(finished) - new Date(started)) / 1000;
       const mins = Math.floor(durationSeconds / 60);
       const secs = Math.floor(durationSeconds % 60);
       const duration = `${mins}m ${secs}s`;
 
+      // 🔹 Fayl nomi
       const dt = new Date(finished);
       const yyyy = dt.getFullYear();
       const mm = String(dt.getMonth() + 1).padStart(2, "0");
@@ -200,44 +214,37 @@ export default function App() {
         .replace(/[^\w\-]/g, "");
       const filename = `${safeName}_${yyyy}${mm}${dd}-${hh}${min}.pdf`;
 
-      // 🧾 PDF yaratish
-      const doc = new jsPDF({ unit: "px", format: "a4" });
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const pageWidth = doc.internal.pageSize.getWidth();
+      // 📄 PDF kontent
       let y = 30;
-      const fontBytes = await fetch("/fonts/NotoSans-Regular.ttf").then(res => res.arrayBuffer());
-      doc.addFileToVFS("NotoSans-Regular.ttf", fontBytes);
-      doc.addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
-      doc.setFont("NotoSans");
-
-      // Header
       doc.setFontSize(14);
-      doc.text("Test Summary", 20, y);
+      doc.text("🧠 Test natijalari", 20, y);
       y += 20;
 
       doc.setFontSize(12);
       doc.text(`Ism: ${name}`, 20, y); y += 16;
-      doc.text(`Boshlagan vaqt: ${started}`, 20, y); y += 16;
-      doc.text(`Tugatgan vaqt: ${finished}`, 20, y); y += 16;
+      doc.text(`Boshlangan vaqt: ${started}`, 20, y); y += 16;
+      doc.text(`Tugagan vaqt: ${finished}`, 20, y); y += 16;
       doc.text(`Davomiylik: ${duration}`, 20, y); y += 16;
-      doc.text(`Natija: ${correct} / ${total}`, 20, y); y += 20;
+      doc.text(`Ball: ${correct} / ${total}`, 20, y); y += 20;
 
-      // Savollarni qo‘shish
-      const splitText = doc.splitTextToSize(rows, pageWidth - 40);
+      // 🔹 Sahifalarga bo‘lish
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const split = doc.splitTextToSize(rows, 400);
 
-      for (let i = 0; i < splitText.length; i++) {
+      for (let i = 0; i < split.length; i++) {
         if (y > pageHeight - 40) {
           doc.addPage();
           y = 30;
         }
-        doc.text(splitText[i], 20, y);
+        doc.text(split[i], 20, y);
         y += 14;
       }
 
-      // 📦 PDF fayl
+      // 📦 Blob yaratish
       const pdfBlob = doc.output("blob");
       const file = new File([pdfBlob], filename, { type: "application/pdf" });
 
+      // 🔄 Backendga yuborish
       const fd = new FormData();
       fd.append("file", file);
       fd.append("name", name);
@@ -247,7 +254,7 @@ export default function App() {
       fd.append("total", total.toString());
       fd.append("correct", correct.toString());
 
-      const res = await fetch("https://otabek.alwaysdata.net/submit", {
+      const res = await fetch("http://localhost:4000/submit", {
         method: "POST",
         body: fd,
       });
@@ -255,7 +262,7 @@ export default function App() {
       if (!res.ok) {
         const text = await res.text().catch(() => null);
         console.error("Submit failed:", res.status, text);
-        alert("❌ Test natijasi yuborilmadi. Iltimos, qayta urinib ko‘ring.");
+        alert("❌ Test natijasi yuborilmadi. Qayta urinib ko‘ring.");
       } else {
         console.log("✅ PDF muvaffaqiyatli yuborildi!");
         alert("✅ Test natijangiz yuborildi!");
@@ -266,6 +273,7 @@ export default function App() {
       alert("PDF yaratishda yoki yuborishda xatolik yuz berdi!");
     }
   };
+
 
 
   const formatDuration = (secs) => {
