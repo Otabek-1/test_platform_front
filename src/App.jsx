@@ -168,17 +168,8 @@ export default function App() {
       // 🔹 Lazy import jsPDF (bundle hajmini kamaytirish uchun)
       const { jsPDF } = await import("jspdf");
 
-      // 🔹 Fontni yuklash (public/fonts/NotoSans-Regular.ttf)
-      const fontUrl = `${window.location.origin}/fonts/NotoSans-Regular.ttf`;
-      const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
-      const fontBinary = new Uint8Array(fontBytes);
-
       // 🔹 Fontni jsPDF’ga qo‘shish
       const doc = new jsPDF({ unit: "px", format: "a4" });
-      doc.addFileToVFS("NotoSans-Regular.ttf", fontBinary);
-      doc.addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
-      doc.setFont("NotoSans", "normal");
-
       // 🔹 Test natijalari
       const total = tests.length;
       let correct = 0;
@@ -188,7 +179,7 @@ export default function App() {
           const userAnswer = answers[t.id];
           const isCorrect = userAnswer === t.answer;
           if (isCorrect) correct++;
-          return `${i + 1}. ${t.question}\nSizning javobingiz: ${userAnswer || "-"
+          return `${i + 1}. ${t.question}\nTanlangan javob: ${userAnswer || "-"
             }\nTo‘g‘ri javob: ${t.answer}\n\n`;
         })
         .join("");
@@ -254,7 +245,7 @@ export default function App() {
       fd.append("total", total.toString());
       fd.append("correct", correct.toString());
 
-      const res = await fetch("http://localhost:4000/submit", {
+      const res = await fetch("https://otabek.alwaysdata.net/submit", {
         method: "POST",
         body: fd,
       });
