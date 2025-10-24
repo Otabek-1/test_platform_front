@@ -293,7 +293,7 @@ const createAndSendPDF = async () => {
         <div className="w-full max-w-md bg-white p-6 rounded-lg shadow">
           <div className="text-center mb-4">
             <div className="w-20 h-20 mx-auto bg-gradient-to-br from-green-500 to-pink-500 rounded-full flex items-center justify-center text-white font-bold">
-              <Wheat />
+              <Wheat className="scale-170"/>
             </div>
             <p className="mt-3 text-lg text-gray-800">Don mutaxassislari  bilimlarini baholash platformasi</p>
           </div>
