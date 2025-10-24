@@ -213,8 +213,8 @@ export default function App() {
 
       doc.setFontSize(12);
       doc.text(`Ism: ${name}`, 20, y); y += 16;
-      doc.text(`Boshlangan vaqt: ${started.split("T")[0] + " " + started.split("T")[1] + "GMT +5"}`, 20, y); y += 16;
-      doc.text(`Tugagan vaqt: ${finished.split("T")[0] + " " + finished.split("T")[1] + "GMT +5"}`, 20, y); y += 16;
+      doc.text(`Boshlangan vaqt: ${started.split("T")[0] + " " + started.split("T")[1].split("Z")[0] + "GMT +5"}`, 20, y); y += 16;
+      doc.text(`Tugagan vaqt: ${finished.split("T")[0] + " " + finished.split("T")[1].split("Z")[0] + "GMT +5"}`, 20, y); y += 16;
       doc.text(`Davomiylik: ${duration}`, 20, y); y += 16;
       doc.text(`Ball: ${correct} / ${total}`, 20, y); y += 20;
 
