@@ -1,3 +1,4 @@
+import { Angry, CheckCheckIcon, CheckLine, CircleQuestionMark, FileQuestionIcon, LeafyGreen, Paperclip, Wheat } from "lucide-react";
 import React, { useEffect, useState, useRef } from "react";
 
 /**
@@ -38,7 +39,7 @@ export default function App() {
   const handleVerify = async () => {
     setShowVerifyError("");
     if (!name.trim()) {
-      setShowVerifyError("Please enter your full name.");
+      setShowVerifyError("Iltimos to'liq ismingizni kiriting.");
       return;
     }
     try {
@@ -99,7 +100,7 @@ export default function App() {
       setViolations((v) => v + 1);
       // Use confirm-like warning but keep it simple
       // small alert is acceptable for tests
-      alert("Warning: You left the test window. Please do not switch tabs.");
+      alert("Ogohlantirish: siz test oynasidan chiqdingiz, test jarayonida boshqa oyna yoki ilovaga o'tish mumkin emas.");
     }
   };
 
@@ -173,9 +174,9 @@ const createAndSendPDF = async () => {
         const userAnswer = answers[t.id];
         const isCorrect = userAnswer === t.answer;
         if (isCorrect) correct++;
-        return `${i + 1}. ${t.question}\nYour answer: ${
+        return `${i + 1}. ${t.question}\nTanlangan javob: ${
           userAnswer || "-"
-        }\nCorrect answer: ${t.answer}\n\n`;
+        }\nTo'g'ri javob: ${t.answer}\n\n`;
       })
       .join("");
 
@@ -211,11 +212,11 @@ const createAndSendPDF = async () => {
     y += 20;
 
     doc.setFontSize(12);
-    doc.text(`Name: ${name}`, 20, y); y += 16;
-    doc.text(`Started: ${started}`, 20, y); y += 16;
-    doc.text(`Finished: ${finished}`, 20, y); y += 16;
-    doc.text(`Duration: ${duration}`, 20, y); y += 16;
-    doc.text(`Score: ${correct} / ${total}`, 20, y); y += 20;
+    doc.text(`Ism: ${name}`, 20, y); y += 16;
+    doc.text(`Boshlagan vaqt: ${started}`, 20, y); y += 16;
+    doc.text(`Tugatgan vaqt: ${finished}`, 20, y); y += 16;
+    doc.text(`Davomiylik: ${duration}`, 20, y); y += 16;
+    doc.text(`Natija: ${correct} / ${total}`, 20, y); y += 20;
 
     // Savollarni qo‘shish
     const splitText = doc.splitTextToSize(rows, pageWidth - 40);
@@ -291,28 +292,28 @@ const createAndSendPDF = async () => {
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <div className="w-full max-w-md bg-white p-6 rounded-lg shadow">
           <div className="text-center mb-4">
-            <div className="w-20 h-20 mx-auto bg-gradient-to-br from-indigo-500 to-pink-500 rounded-full flex items-center justify-center text-white font-bold">
-              LOGO
+            <div className="w-20 h-20 mx-auto bg-gradient-to-br from-green-500 to-pink-500 rounded-full flex items-center justify-center text-white font-bold">
+              <Wheat />
             </div>
-            <p className="mt-3 text-sm text-gray-600">Enter your full name and access code</p>
+            <p className="mt-3 text-lg text-gray-800">Don mutaxassislari  bilimlarini baholash platformasi</p>
           </div>
 
           <div className="space-y-3">
             <input
-              className="w-full p-2 border rounded bg-gray-50"
-              placeholder="Full name"
+              className="w-full p-2 border border-gray-400 outline-none rounded-lg bg-gray-50"
+              placeholder="To'liq ism- familya"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
             <input
-              className="w-full p-2 border rounded bg-gray-50"
+              className="w-full p-2 border border-gray-400 outline-none rounded-lg bg-gray-50"
               placeholder="Access code"
               value={code}
               onChange={(e) => setCode(e.target.value)}
             />
             {showVerifyError && <div className="text-red-500 text-sm">{showVerifyError}</div>}
             <button className="w-full py-2 bg-indigo-600 text-white rounded" onClick={handleVerify}>
-              Enter
+              Kirish
             </button>
           </div>
         </div>
@@ -324,19 +325,19 @@ const createAndSendPDF = async () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="w-full max-w-2xl bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-bold mb-4">Important rules before starting</h2>
+          <h2 className="text-xl font-bold mb-4">Muhim qoidalar!</h2>
           <ul className="list-disc pl-5 text-sm text-gray-700">
-            <li>Test duration: <strong>1 hour</strong>.</li>
-            <li>Total tests: <strong>25</strong>.</li>
-            <li>Do NOT switch to another tab or app during the test.</li>
-            <li>Do NOT refresh the page.</li>
+            <li>Test davomiyligi: <strong>1 soat</strong>.</li>
+            <li>Testlar soni: <strong>25</strong>.</li>
+            <li>Test jarayonida boshqa oyna yoki brauzerga o'tmang.</li>
+            <li>Test jarayonida brauzerni qayta yuklamang.</li>
           </ul>
           <div className="mt-6 flex justify-end">
             <button className="px-4 py-2 bg-gray-200 rounded mr-2" onClick={() => setStep("verify")}>
-              Back
+              Orqaga
             </button>
             <button className="px-4 py-2 bg-indigo-600 text-white rounded" onClick={startTest}>
-              Start
+              Boshlash
             </button>
           </div>
         </div>
@@ -352,11 +353,11 @@ const createAndSendPDF = async () => {
         {/* Navbar */}
         <nav className="flex items-center justify-between px-4 py-3 bg-white shadow">
           <div className="flex items-center gap-4">
-            <div className="font-bold">TestApp</div>
+            <div className="font-bold">Don mutaxassislari bilimlarini baholash platformasi</div>
             <div className="text-sm text-gray-600">{name}</div>
           </div>
           <div className="text-sm">
-            Time left:{" "}
+            Qolgan vaqt:{" "}
             <span className="font-mono">
               {pad(Math.floor(timeLeft / 3600))}:{pad(Math.floor((timeLeft % 3600) / 60))}:{pad(timeLeft % 60)}
             </span>
@@ -368,7 +369,7 @@ const createAndSendPDF = async () => {
           <div className="bg-white p-4 rounded shadow">
             <div className="flex justify-between items-start">
               <div>
-                <h3 className="font-semibold">Question {currentIndex + 1} / {total}</h3>
+                <h3 className="font-semibold">{currentIndex + 1} / {total}- savol</h3>
                 <p className="mt-2 text-gray-700">{current.question}</p>
               </div>
               <div className="text-sm text-gray-500">
@@ -394,15 +395,15 @@ const createAndSendPDF = async () => {
             <div className="mt-4 flex justify-between">
               <div>
                 <button className="px-3 py-1 mr-2 border rounded" onClick={goPrev} disabled={currentIndex === 0}>
-                  Prev
+                  Oldingi
                 </button>
                 <button className="px-3 py-1 border rounded" onClick={goNext} disabled={currentIndex === total - 1}>
-                  Next
+                  Keyingi
                 </button>
               </div>
 
               {/* removed duplicate finish -- only one finish (in footer) */}
-              <div className="text-sm text-gray-500">Questions: {total}</div>
+              <div className="text-sm text-gray-500">Savollar: {total}</div>
             </div>
           </div>
 
@@ -429,7 +430,7 @@ const createAndSendPDF = async () => {
             <div className="text-sm text-gray-600">{name} — {tests.length} questions</div>
             <div>
               <button className="px-4 py-2 bg-red-600 text-white rounded" onClick={handleFinish}>
-                Finish
+                Tugatish
               </button>
             </div>
           </div>
@@ -450,9 +451,9 @@ const createAndSendPDF = async () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <div className="w-full max-w-2xl bg-white p-6 rounded shadow text-center">
-          <h2 className="text-xl font-bold">Test completed successfully!</h2>
-          <p className="mt-2">Your test results have been submitted automatically.</p>
-          <p className="mt-2 text-sm text-gray-600">Score: {correct} / {total}</p>
+          <h2 className="text-xl font-bold">Test muvaffaqiyatli yakunlandi!</h2>
+          <p className="mt-2">Test natijalaringiz avtomatik qabul qilindi va jo'natildi.</p>
+          <p className="mt-2 text-sm text-gray-600">Natija: {correct} / {total}</p>
         </div>
       </div>
     );
