@@ -29,8 +29,8 @@ export default function App() {
   const [answers, setAnswers] = useState({}); // {testId: selectedOption}
   const [startedAt, setStartedAt] = useState(null);
   const [finishedAt, setFinishedAt] = useState(null);
-  const [durationSec, setDurationSec] = useState(60 * 60); // 60 minutes
-  const [timeLeft, setTimeLeft] = useState(60 * 60);
+  const [durationSec, setDurationSec] = useState(25 * 60); // 60 minutes
+  const [timeLeft, setTimeLeft] = useState(25);
   const [violations, setViolations] = useState(0);
   const [showVerifyError, setShowVerifyError] = useState("");
   const timerRef = useRef(null);
@@ -69,8 +69,8 @@ export default function App() {
       const arr = await res.json();
       setTests(Array.isArray(arr) ? arr : []);
       setStartedAt(new Date().toISOString());
-      setTimeLeft(60 * 60);
-      setDurationSec(60 * 60);
+      setTimeLeft(25 * 60);
+      setDurationSec(25 * 60);
       setCurrentIndex(0);
       setAnswers({});
       setViolations(0);
@@ -330,7 +330,7 @@ export default function App() {
         <div className="w-full max-w-2xl bg-white p-6 rounded-lg shadow">
           <h2 className="text-xl font-bold mb-4">Muhim qoidalar!</h2>
           <ul className="list-disc pl-5 text-sm text-gray-700">
-            <li>Test davomiyligi: <strong>1 soat</strong>.</li>
+            <li>Test davomiyligi: <strong>25 daqiqa</strong>.</li>
             <li>Testlar soni: <strong>25</strong>.</li>
             <li>Test jarayonida boshqa oyna yoki brauzerga o'tmang.</li>
             <li>Test jarayonida brauzerni qayta yuklamang.</li>
